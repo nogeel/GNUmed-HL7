@@ -4,23 +4,18 @@ import glob
 import os
 import os.path
 import shutil
+from datetime import datetime
 import GNUMedErrorWriter
 
 __author__ = 'Jeffrey Leegon'
 
 move_files = False
 
-if len(sys.argv) < 2:
-    print "There are not enough parameters:"
-    print "python hl7_xml_unwrapper.py [input directory] [hl7 files directory]"
-    print "OR"
-    print "python hl7_xml_unwrapper.py [input directory] [hl7 files directory] [xml files directory]"
-
-if len(sys.argv) == 3:
-    move_files = True
-
 
 def process_xml_file(in_file, out_file, move_file_path=''):
+    """ Opens the xml file  pulls out all of the hl7 messages in the file , then writes them to a text file. If a move_file_path
+    is provided, it function moves the xml file to the given directory, otherwise it appends '.px' to all XML files that have been processed."""
+
     try:
         e_tree = ElementTree.parse(in_file)
     except:
@@ -55,24 +50,35 @@ def process_xml_file(in_file, out_file, move_file_path=''):
             "File could not be moved to the specified directory. filename will be changed instead.")
 
 
+def process_directory(input_directory, hl7_directory, processed_file_dir=''):
+    input_directory = os.path.join(input_directory, "*.xml")
+    xml_files = glob.glob(input_directory)
+    print input_directory
+    print xml_files
+    # Process each file.
+    for n in xml_files:
+        print "Processing file:" + n
+        file_name = os.path.split(n)[1]
+        file_wo_extension = os.path.splitext(file_name)[0]
+        #Add date and time to the filename to help prevent duplicates
+        dated_filename = file_wo_extension + '-' + str(datetime.now())
+        hl7_path = os.path.join(hl7_directory, dated_filename + ".hl7")
+        if move_files:
+            move_path = os.path.join(processed_file_dir, file_name)
+            process_xml_file(n, hl7_path, move_path)
+        else:
+            process_xml_file(n, hl7_path)
+
 #Search for XML files located in the specified directory
+if __name__ == '__main__':
+    if len(sys.argv) < 2:
+        print "There are not enough parameters:"
+        print "python hl7_xml_unwrapper.py [input directory] [hl7 files directory]"
+        print "OR"
+        print "python hl7_xml_unwrapper.py [input directory] [hl7 files directory] [xml files directory]"
 
-input_directory = sys.argv[1]
-hl7_directory = sys.argv[2]
-processed_file_dir = sys.argv[3]
-
-input_directory = os.path.join(input_directory, "*.xml")
-xml_files = glob.glob(input_directory)
-print input_directory
-print xml_files
-# Process each file.
-for n in xml_files:
-    print "Processing file:" + n
-    file_name = os.path.split(n)[1]
-    file_wo_extension = os.path.splitext(file_name)[0]
-    hl7_path = os.path.join(hl7_directory, file_wo_extension + ".hl7")
-    if move_files:
-        move_path = os.path.join(processed_file_dir, file_name)
-        process_xml_file(n, hl7_path, move_path)
-    else:
-        process_xml_file(n, hl7_path)
+    if len(sys.argv) == 3:
+        process_directory(sys.argv[1], sys.argv[2])
+    elif len(sys.argv) == 4:
+        move_files = True
+        process_directory(sys.argv[1], sys.argv[2], sys.argv[3])
