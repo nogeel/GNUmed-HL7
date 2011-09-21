@@ -31,14 +31,15 @@ def insert_unmatched_record(record_dictionary):
         cursor = conn.cursor()
         insert_query = """SET TRANSACTION READ WRITE;
                     INSERT into clin.incoming_data_unmatched
-                    (external_data_id, lastnames, firstnames, gender, type, requestor, data)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s); """
+                    (external_data_id, lastnames, firstnames, gender, type, requestor, request_id, other_info, data)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s); """
 
         #print insert_query
         cursor.execute(insert_query, (record_dictionary['external_id'], record_dictionary['last_name'],
                                       record_dictionary['first_name'], record_dictionary['gender'],
                                       record_dictionary['data_type'], record_dictionary['ordering_provider_information']
-                                      , psycopg2.Binary(record_dictionary['data'])))
+                                      , record_dictionary['request_id'], record_dictionary['other_info'],
+                                      psycopg2.Binary(record_dictionary['data'])))
         conn.commit()
         cursor.close()
         conn.close()
