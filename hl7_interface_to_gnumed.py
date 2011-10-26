@@ -2,7 +2,7 @@ __author__ = 'Jeffrey Leegon'
 
 import psycopg2
 from ConfigParser import SafeConfigParser
-import traceback
+import gnumed_error_writer
 
 
 CONFIG_FILE_NAME = 'gnumed_hl7_interface.cfg'
@@ -18,9 +18,6 @@ connection_string = "host='%s' port='%s' dbname='%s' user='%s' password='%s'" % 
                                                                                  parser.get('db', 'dbname'),
                                                                                  parser.get('db', 'user'),
                                                                                  parser.get('db', 'password'))
-
-#def create_connection():
-
 
 
 def insert_unmatched_record(record_dictionary):
@@ -44,6 +41,8 @@ def insert_unmatched_record(record_dictionary):
         cursor.close()
         conn.close()
     except:
-        print "Something went wrong"
-        print traceback.print_exc()
+        error_message = "And error occurred trying to insert record with request_id: \'%s\'\t and external_id: \'%s\'. "\
+        % (record_dictionary['request_id'], record_dictionary['external_id'])
+        gnumed_error_writer.write_error(error_message)
+        exit(gnumed_error_writer.EXIT_CODE_DB_ISSUE)
 
