@@ -1,13 +1,7 @@
 from xml.etree import ElementTree
 import sys
-import glob
-import os
-import os.path
-import shutil
-from datetime import datetime
-import GNUMedErrorWriter
-
-__author__ = 'Jeffrey Leegon'
+import gnumed_error_writer
+import hl7_importer_file_directory_utilities
 
 move_files = False
 
@@ -19,17 +13,21 @@ def process_xml_file(in_file, out_file, move_file_path=''):
     try:
         e_tree = ElementTree.parse(in_file)
     except:
-        GNUMedErrorWriter.write_error("Not a valid XML file")
+        gnumed_error_writer.write_error("Not a valid XML file")
+        exit(gnumed_error_writer.EXIT_CODE_INVALID_XML)
 
 
     # Grab all messages in the XML document
     messages = e_tree.findall('.//Message')
 
-
     # Check to see if the file is complete.
     # Looks at the MessageCount attribute in the root node and compare with the number of Message nodes
     stated_number = e_tree._root.attrib['MessageCount']
-    print "Do the numbers match?\t" + str((len(messages) == int(stated_number)))
+    if (len(messages) != int(stated_number)):
+        error_message = "Number of message in %s do not match: Listed: %s\t Actual: %s" % (
+        in_file,(len(messages)), str(stated_number))
+        gnumed_error_writer.write_error(error_message)
+        exit(gnumed_error_writer.EXIT_CODE_MISMATCH)
 
     #Write HL7 messages to  an HL7 file
     try:
@@ -37,37 +35,28 @@ def process_xml_file(in_file, out_file, move_file_path=''):
             for node in messages:
                 hl7_file.write(node.text)
     except IOError:
-        GNUMedErrorWriter.write_error("Could not open the file")
+        error_message = "Could not open file %s" % out_file
+        gnumed_error_writer.write_error(error_message)
+        exit(gnumed_error_writer.EXIT_FILE_OPERATION_ERROR)
 
+
+def process_xml_directory(input_directory, hl7_directory, processed_file_dir=None):
     try:
-        if move_files:
-            shutil.move(in_file, move_file_path)
-        else:
-            temp_name = in_file + ".px"
-            shutil.move(in_file, temp_name)
+        xml_files = hl7_importer_file_directory_utilities.process_directory('xml', input_directory)
     except IOError:
-        GNUMedErrorWriter.write_error(
-            "File could not be moved to the specified directory. filename will be changed instead.")
+        error_message = "An error occurred trying to retrieve the xml file contents of the directory: %s." % (
+            input_directory)
+        gnumed_error_writer.write_error(error_message)
+        exit(gnumed_error_writer.EXIT_FILE_OPERATION_ERROR)
+    else:
 
-
-def process_directory(input_directory, hl7_directory, processed_file_dir=''):
-    input_directory = os.path.join(input_directory, "*.xml")
-    xml_files = glob.glob(input_directory)
-    print input_directory
-    print xml_files
     # Process each file.
-    for n in xml_files:
-        print "Processing file:" + n
-        file_name = os.path.split(n)[1]
-        file_wo_extension = os.path.splitext(file_name)[0]
-        #Add date and time to the filename to help prevent duplicates
-        dated_filename = file_wo_extension + '-' + str(datetime.now())
-        hl7_path = os.path.join(hl7_directory, dated_filename + ".hl7")
-        if move_files:
-            move_path = os.path.join(processed_file_dir, file_name)
-            process_xml_file(n, hl7_path, move_path)
-        else:
+        for n in xml_files:
+            hl7_path = hl7_importer_file_directory_utilities.create_output_path('hl7', n, hl7_directory, True)
+
             process_xml_file(n, hl7_path)
+            hl7_importer_file_directory_utilities.handle_processed_file(n, processed_file_dir)
+
 
 #Search for XML files located in the specified directory
 if __name__ == '__main__':
@@ -78,7 +67,7 @@ if __name__ == '__main__':
         print "python hl7_xml_unwrapper.py [input directory] [hl7 files directory] [xml files directory]"
 
     if len(sys.argv) == 3:
-        process_directory(sys.argv[1], sys.argv[2])
+        process_xml_directory(sys.argv[1], sys.argv[2])
     elif len(sys.argv) == 4:
         move_files = True
-        process_directory(sys.argv[1], sys.argv[2], sys.argv[3])
+        process_xml_directory(sys.argv[1], sys.argv[2], sys.argv[3])
